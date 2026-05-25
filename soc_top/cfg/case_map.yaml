@@ -1,0 +1,18 @@
+case_rules:
+  - pattern: "fm_test*"
+    mode: "FM_MODE"
+    uvm_test: "soc_top_test_fm_base"
+    sw_load: true
+    ahb_active: false
+    ahb_monitor: true
+  - pattern: "soc_top*"
+    mode: "UVM_MODE"
+    uvm_test: "soc_top_test_uvm_base"
+    sw_load: false
+    ahb_active: true
+    ahb_monitor: true
+
+defaults:
+  timeout_cycles: 1000000
+  idle_cycles: 100
+  hold_cpu_in_reset_in_uvm_mode: true
