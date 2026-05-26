@@ -1,0 +1,138 @@
+# UVM generator config draft for Wujian100 open SoC top.
+# Do not generate until this file is reviewed and confirmed.
+#
+# DUT clock/reset analysis from RTL:
+# - PIN_EHS -> PAD_OSC_IO.x_PAD_EHS -> ehs_pmu_clk.
+#   clkgen drives soc_hclk/soc_p0clk/soc_p1clk/soc_s3clk/dft_clk from ehs_pmu_clk.
+#   This is the functional high-speed SoC/bus clock source.
+# - PIN_ELS -> PAD_OSC_IO.x_PAD_ELS -> els_pmu_clk.
+#   clkgen drives pmu_rtc_clk from els_pmu_clk.
+#   This is the low-speed RTC clock source.
+# - PAD_MCURST -> PAD_DIG_IO.x_PAD_MCURST -> pad_mcurst_b.
+#   clkgen creates sys_rst_b = pad_mcurst_b & wdt_pmu_rst_b.
+#   Internal resets are active-low and derived from sys_rst_b.
+# - The stock generator AHB template instantiates cdnAhbInterface as Bus(h_clk, h_rst),
+#   so hclk_rst is kept for generated AHB VIP clock/reset. For SoC-level CPU
+#   AHB takeover, h_clk/h_rst must be sourced from the DUT internal hmain0
+#   domain after generation:
+#     h_clk <- u_wujian100_open_top.pmu_hmain0_hclk
+#     h_rst <- u_wujian100_open_top.pmu_hmain0_hrst_b
+
+DUT:
+  Module: wujian100_open_top
+  rtl_path: /home/eda/prj/wujian100/soc/wujian100_open_top.v
+  inst_name: u_wujian100_open_top
+
+  top_requirements:
+    clocks:
+      PIN_EHS:
+        role: primary_soc_bus_clock
+        internal_path: PIN_EHS -> ehs_pmu_clk -> soc_hclk/pad_core_clk/pmu_hmain0_hclk
+        suggested_freq_mhz: 50
+      pmu_hmain0_hclk:
+        role: ahb_master_vip_clock
+        source: internal_dut_signal
+        internal_path: ehs_pmu_clk -> soc_hclk -> pmu_hmain0_hclk
+        note: AHB master VIP must run on this MCU internal AHB clock domain when taking over CPU AHB.
+      PIN_ELS:
+        role: low_speed_rtc_clock
+        internal_path: PIN_ELS -> els_pmu_clk -> pmu_rtc_clk
+        suggested_freq_hz: 32768
+    resets:
+      PAD_MCURST:
+        role: external_mcu_reset_pad
+        active_level: low
+        internal_path: PAD_MCURST -> pad_mcurst_b -> sys_rst_b -> soc_*rst_b
+        note: sys_rst_b is gated with wdt_pmu_rst_b inside clkgen.
+      pmu_hmain0_hrst_b:
+        role: ahb_master_vip_reset
+        active_level: low
+        source: internal_dut_signal
+        internal_path: sys_rst_b -> soc_hrst_b -> pmu_hmain0_hrst_b
+        note: AHB master VIP reset must follow this MCU internal AHB reset when taking over CPU AHB.
+
+  clock_rst:
+    hclk_rst:
+      # Required by the generator's AHB VIP Bus(h_clk, h_rst) template.
+      # It represents the generated AHB VIP clock/reset domain. For final SoC
+      # TB integration, connect generated h_clk/h_rst to the DUT internal
+      # pmu_hmain0_hclk/pmu_hmain0_hrst_b domain instead of using an unrelated
+      # free-running TB clock/reset.
+      prefix: h
+      clk_en: 1
+      rst_en: 1
+      clk_fre: 50
+      rst_scheme: RstAssertAsyncDeassertSync
+
+  rtl_inc_dirs:
+    - /home/eda/prj/wujian100/soc
+    - /home/eda/prj/wujian100/soc/params
+    - /home/eda/prj/wujian100/soc/sim_lib
+
+  rtl_files:
+    - /home/eda/prj/wujian100/soc/E902_20191018.v
+    - /home/eda/prj/wujian100/soc/ahb_matrix_top.v
+    - /home/eda/prj/wujian100/soc/aou_top.v
+    - /home/eda/prj/wujian100/soc/apb0.v
+    - /home/eda/prj/wujian100/soc/apb0_sub_top.v
+    - /home/eda/prj/wujian100/soc/apb1.v
+    - /home/eda/prj/wujian100/soc/apb1_sub_top.v
+    - /home/eda/prj/wujian100/soc/clkgen.v
+    - /home/eda/prj/wujian100/soc/common.v
+    - /home/eda/prj/wujian100/soc/core_top.v
+    - /home/eda/prj/wujian100/soc/dmac.v
+    - /home/eda/prj/wujian100/soc/dummy.v
+    - /home/eda/prj/wujian100/soc/gpio0.v
+    - /home/eda/prj/wujian100/soc/ls_sub_top.v
+    - /home/eda/prj/wujian100/soc/matrix.v
+    - /home/eda/prj/wujian100/soc/pdu_top.v
+    - /home/eda/prj/wujian100/soc/pwm.v
+    - /home/eda/prj/wujian100/soc/retu_top.v
+    - /home/eda/prj/wujian100/soc/rtc.v
+    - /home/eda/prj/wujian100/soc/sim_lib/PAD_DIG_IO.v
+    - /home/eda/prj/wujian100/soc/sim_lib/PAD_OSC_IO.v
+    - /home/eda/prj/wujian100/soc/sim_lib/STD_CELL.v
+    - /home/eda/prj/wujian100/soc/sim_lib/fpga_byte_spram.v
+    - /home/eda/prj/wujian100/soc/sim_lib/fpga_spram.v
+    - /home/eda/prj/wujian100/soc/sms.v
+    - /home/eda/prj/wujian100/soc/smu_top.v
+    - /home/eda/prj/wujian100/soc/tim.v
+    - /home/eda/prj/wujian100/soc/tim1.v
+    - /home/eda/prj/wujian100/soc/tim2.v
+    - /home/eda/prj/wujian100/soc/tim3.v
+    - /home/eda/prj/wujian100/soc/tim4.v
+    - /home/eda/prj/wujian100/soc/tim5.v
+    - /home/eda/prj/wujian100/soc/tim6.v
+    - /home/eda/prj/wujian100/soc/tim7.v
+    - /home/eda/prj/wujian100/soc/usi0.v
+    - /home/eda/prj/wujian100/soc/usi1.v
+    - /home/eda/prj/wujian100/soc/wdt.v
+    - /home/eda/prj/wujian100/soc/wujian100_open_top.v
+
+Testbench:
+  Modport:
+  reg_bus_type: ahb
+  cdn_vip:
+    vip_dir:
+      - cdn_ahb
+    vip_src:
+      - ../denaliCdn_ahb.sv
+      - cdn_ahb/cdnAhbUvmTop.sv
+      - ../hdl_interfaces/cdn_ahb/cb_interfaces/cdnAhbInterface.sv
+    vip_pkg:
+      - DenaliSvMem
+      - DenaliSvCdn_ahb
+      - cdnAhbUvm
+    Agents:
+      ahb_mst:
+        count: 1
+        agent_prefix: cdnAhb
+        intf: cdnAhbLiteActiveMasterInterface
+        has_seqr: Y
+      ahb_slv:
+        count: 1
+        agent_prefix: cdnAhb
+        intf: cdnAhbLiteActiveSlaveInterface
+        has_seqr: Y
+
+Output_Path: /home/eda/prj/wujian100/soc_tb

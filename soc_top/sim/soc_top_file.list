@@ -1,7 +1,0 @@
-+incdir+../uvm/env
-+incdir+../uvm/tests
-+incdir+../uvm/seq
-../common_ifs/soc_top_dut_intf.sv
-../uvm/env/soc_top_env_pkg.sv
-../uvm/tests/soc_top_test_pkg.sv
-../tb/src/tb_top.sv
